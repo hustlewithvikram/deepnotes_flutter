@@ -1,16 +1,20 @@
-# deepnotes_flutter
+# DeepNotes Flutter App
 
-A new Flutter project.
+DeepNotes is a Flutter-based note-taking application designed to help you create, organize, and manage your notes efficiently. It supports searching, pinning, and selecting multiple notes for quick actions like deletion.
+
+## Features
+
+- Create, edit, and delete notes
+- Pin important notes for quick access
+- Search notes by title or content
+- Select multiple notes for batch actions
+- Dark mode support
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+To run DeepNotes on your local machine:
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Make sure you have [Flutter](https://docs.flutter.dev/get-started/install) installed.
+2. Clone this repository:
+   ```bash
+   git clone https://github.com/your-username/deepnotes_flutter.git
