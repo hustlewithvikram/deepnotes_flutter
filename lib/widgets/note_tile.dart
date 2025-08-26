@@ -8,12 +8,12 @@ class NoteTile extends StatelessWidget {
   final VoidCallback onLongPress;
 
   const NoteTile({
-    Key? key,
+    super.key,
     required this.note,
     required this.isSelected,
     required this.onTap,
     required this.onLongPress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

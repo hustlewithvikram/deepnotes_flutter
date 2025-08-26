@@ -6,7 +6,7 @@ class NoteEditor extends StatefulWidget {
   final Note? note; // nullable for new note
   final AppDatabase db = AppDatabase.instance;
 
-  NoteEditor({Key? key, this.note}) : super(key: key);
+  NoteEditor({super.key, this.note});
 
   @override
   State<NoteEditor> createState() => _NoteEditorState();

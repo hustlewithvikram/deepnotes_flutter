@@ -1,4 +1,3 @@
-import 'package:deepnotes_flutter/utils/preference_utils.dart';
 import 'package:deepnotes_flutter/utils/theme_utils.dart';
 import 'package:deepnotes_flutter/widgets/home_page.dart';
 import 'package:flutter/material.dart';

@@ -49,7 +49,7 @@ class SearchBarWidget extends StatelessWidget {
               focusNode: focusNode,
               decoration: InputDecoration(
                 hintText: isSelectionMode
-                    ? "${controller.text}"
+                    ? controller.text
                     : "Search notes...",
                 prefixIcon: isSelectionMode
                     ? const Icon(Icons.check_circle, color: Colors.blue)

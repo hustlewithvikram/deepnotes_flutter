@@ -9,12 +9,12 @@ class NotesGrid extends StatelessWidget {
   final void Function(Note note) onLongPress;
 
   const NotesGrid({
-    Key? key,
+    super.key,
     required this.notes,
     required this.selectedNoteIds,
     required this.onTap,
     required this.onLongPress,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -21,7 +21,7 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   List<Note> _notes = [];
-  Set<int> _selectedNoteIds = {};
+  final Set<int> _selectedNoteIds = {};
 
   bool get isSelectionMode => _selectedNoteIds.isNotEmpty;
 
