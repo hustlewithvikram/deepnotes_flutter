@@ -1,3 +1,5 @@
+import 'package:deepnotes_flutter/utils/preference_utils.dart';
+import 'package:deepnotes_flutter/utils/theme_utils.dart';
 import 'package:deepnotes_flutter/widgets/home_page.dart';
 import 'package:flutter/material.dart';
 
@@ -9,12 +11,25 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  ThemeMode _themeMode = ThemeMode.light;
+  late ThemeMode _themeMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = ThemeUtils.getThemeMode(); // directly from utils
+  }
+
+  void _refreshTheme() {
+    setState(() {
+      _themeMode = ThemeUtils.getThemeMode();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Home',
+      debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -31,10 +46,7 @@ class _HomeState extends State<Home> {
         useMaterial3: true,
       ),
       home: HomePage(
-        themeMode: _themeMode,
-        onThemeChanged: (mode) {
-          setState(() => _themeMode = mode);
-        },
+        onThemeChanged: _refreshTheme, // just refresh state
       ),
     );
   }
