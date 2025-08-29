@@ -24,12 +24,34 @@ class _HomePageState extends State<HomePage> {
   final Set<int> _selectedNoteIds = {};
 
   bool get isSelectionMode => _selectedNoteIds.isNotEmpty;
+  bool get hasFocus => _searchFocusNode.hasFocus;
+  bool get hasText => _searchController.text.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _searchFocusNode.addListener(() => setState(() {}));
+    _searchFocusNode.addListener(_onFocusChange);
     _loadNotes();
+  }
+
+  @override
+  void dispose() {
+    _searchFocusNode.removeListener(_onFocusChange);
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() => setState(() {});
+
+  // Handle back button press
+  Future<bool> _onWillPop() async {
+    if (isSelectionMode) {
+      // Clear selection first and trigger UI update
+      _clearSelection();
+      return false; // Don't exit app
+    }
+    return true; // Exit app
   }
 
   Future<void> _loadNotes() async {
@@ -42,39 +64,24 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (context) => NoteEditor(note: note)),
     );
-    if (changed == true) _loadNotes();
+    if (changed == true) await _loadNotes();
   }
 
-  void _confirmDeleteSelected() async {
-    if (_selectedNoteIds.isEmpty) return;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete ${_selectedNoteIds.length} note(s)?'),
-        content: const Text('This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      for (final id in _selectedNoteIds) {
-        await AppDatabase.instance.deleteNote(id);
+  void _toggleNoteSelection(Note note) {
+    setState(() {
+      if (_selectedNoteIds.contains(note.id)) {
+        _selectedNoteIds.remove(note.id);
+      } else {
+        _selectedNoteIds.add(note.id!);
       }
-      setState(() {
-        _selectedNoteIds.clear();
-      });
-      _loadNotes();
-    }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedNoteIds.clear();
+      print("Selection cleared: $_selectedNoteIds"); // Debug print
+    });
   }
 
   /// Pin all selected notes
@@ -82,18 +89,12 @@ class _HomePageState extends State<HomePage> {
     for (final id in _selectedNoteIds) {
       final note = _notes.firstWhere((n) => n.id == id);
       if (!note.isPinned) {
-        final updatedNote = Note(
-          id: note.id,
-          title: note.title,
-          description: note.description,
-          createdAt: note.createdAt,
-          isPinned: true, // updated here
-        );
+        final updatedNote = note.copyWith(isPinned: true);
         await AppDatabase.instance.updateNote(updatedNote);
       }
     }
-    _selectedNoteIds.clear();
-    _loadNotes();
+    _clearSelection();
+    await _loadNotes();
   }
 
   /// Unpin all selected notes
@@ -101,98 +102,175 @@ class _HomePageState extends State<HomePage> {
     for (final id in _selectedNoteIds) {
       final note = _notes.firstWhere((n) => n.id == id);
       if (note.isPinned) {
-        final updatedNote = Note(
-          id: note.id,
-          title: note.title,
-          description: note.description,
-          createdAt: note.createdAt,
-          isPinned: false, // updated here
-        );
+        final updatedNote = note.copyWith(isPinned: false);
         await AppDatabase.instance.updateNote(updatedNote);
       }
     }
-    _selectedNoteIds.clear();
-    _loadNotes();
+    _clearSelection();
+    await _loadNotes();
+  }
+
+  /// Delete all selected notes
+  Future<void> _deleteSelectedNotes() async {
+    for (final id in _selectedNoteIds) {
+      await AppDatabase.instance.deleteNote(id);
+    }
+    _clearSelection();
+    await _loadNotes();
+  }
+
+  void _handleSearchClear() {
+    setState(() {
+      _searchController.clear();
+      _searchFocusNode.unfocus();
+    });
+  }
+
+  List<Note> get _filteredNotes {
+    if (!hasText) return _notes;
+
+    final query = _searchController.text.toLowerCase();
+    return _notes
+        .where(
+          (note) =>
+              note.title.toLowerCase().contains(query) ||
+              note.description.toLowerCase().contains(query),
+        )
+        .toList();
+  }
+
+  bool get _allSelectedPinned {
+    if (_selectedNoteIds.isEmpty) return false;
+    return _selectedNoteIds.every((id) {
+      final note = _notes.firstWhere(
+        (n) => n.id == id,
+        orElse: () => _createEmptyNote(),
+      );
+      return note.isPinned;
+    });
+  }
+
+  bool get _allSelectedUnpinned {
+    if (_selectedNoteIds.isEmpty) return false;
+    return _selectedNoteIds.every((id) {
+      final note = _notes.firstWhere(
+        (n) => n.id == id,
+        orElse: () => _createEmptyNote(),
+      );
+      return !note.isPinned;
+    });
+  }
+
+  // Helper method to create an empty note for fallback
+  Note _createEmptyNote() {
+    return Note(
+      id: -1,
+      title: '',
+      description: '',
+      createdAt: DateTime.now(),
+      isPinned: false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasFocus = _searchFocusNode.hasFocus;
-    final hasText = _searchController.text.isNotEmpty;
+    return WillPopScope(
+      onWillPop: _onWillPop, // Handle back button
+      child: Scaffold(
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            // Also clear selection when tapping outside
+            if (isSelectionMode) {
+              _clearSelection();
+            } else {
+              FocusScope.of(context).unfocus();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(top: 50),
+            child: Column(
+              children: [
+                StreamBuilder<User?>(
+                  stream: FirebaseAuth.instance.authStateChanges(),
+                  builder: (context, snapshot) {
+                    final user = snapshot.data;
 
-    final filteredNotes = hasText
-        ? _notes.where((n) {
-            final q = _searchController.text.toLowerCase();
-            return n.title.toLowerCase().contains(q) ||
-                n.description.toLowerCase().contains(q);
-          }).toList()
-        : _notes;
+                    return SearchBarWidget(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      isSelectionMode: isSelectionMode,
+                      hasFocus: hasFocus,
+                      hasText: hasText,
+                      user: user,
+                      selectedCount: _selectedNoteIds.length,
+                      allSelectedPinned: _allSelectedPinned,
+                      allSelectedUnpinned: _allSelectedUnpinned,
+                      onClear: _handleSearchClear,
+                      onDelete: _deleteSelectedNotes,
+                      onPin: _pinSelectedNotes,
+                      onUnpin: _unpinSelectedNotes,
+                      onAccountTap: () =>
+                          AccountSheet.show(context, widget.onThemeChanged),
+                      onSearchChanged: (query) {
+                        setState(() {}); // Trigger rebuild on search
+                      },
+                    );
+                  },
+                ),
 
-    return Scaffold(
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusScope.of(context).unfocus(), // ✅ unfocus anywhere
-        child: Padding(
-          padding: const EdgeInsets.only(top: 50),
-          child: Column(
-            children: [
-              // ✅ SearchBarWidget (from search_bar.dart)
-              StreamBuilder<User?>(
-                stream: FirebaseAuth.instance.authStateChanges(),
-                builder: (context, snapshot) {
-                  return SearchBarWidget(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    isSelectionMode: isSelectionMode,
-                    hasFocus: hasFocus,
-                    hasText: hasText,
-                    user: snapshot.data,
-                    onClear: () {
-                      setState(() {
-                        _searchController.clear();
-                        _searchFocusNode.unfocus();
-                      });
-                    },
-                    onDelete: _confirmDeleteSelected,
-                    onPin: _pinSelectedNotes,
-                    onUnpin: _unpinSelectedNotes,
-                    onAccountTap: () =>
-                        AccountSheet.show(context, widget.onThemeChanged),
-                  );
-                },
-              ),
+                const SizedBox(height: 20),
 
-              const SizedBox(height: 20),
-
-              // ✅ NotesGrid (from notes_grid.dart)
-              Expanded(
-                child: filteredNotes.isEmpty
-                    ? const Center(child: Text('No notes yet.'))
-                    : NotesGrid(
-                        notes: filteredNotes,
-                        selectedNoteIds: _selectedNoteIds,
-                        onTap: (note) => _openNoteEditor(note),
-                        onLongPress: (note) {
-                          setState(() {
-                            if (_selectedNoteIds.contains(note.id)) {
-                              _selectedNoteIds.remove(note.id);
-                            } else {
-                              _selectedNoteIds.add(note.id!);
-                            }
-                          });
-                        },
-                      ),
-              ),
-            ],
+                Expanded(
+                  child: _filteredNotes.isEmpty
+                      ? _buildEmptyState()
+                      : NotesGrid(
+                          notes: _filteredNotes,
+                          selectedNoteIds: _selectedNoteIds,
+                          onTap: (note) => isSelectionMode
+                              ? _toggleNoteSelection(note)
+                              : _openNoteEditor(note),
+                          onLongPress: (note) => _toggleNoteSelection(note),
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
 
-      // ✅ FAB for adding notes
-      floatingActionButton: FloatingActionButton.extended(
-        label: const Text("New Note"),
-        onPressed: () => _openNoteEditor(),
-        icon: const Icon(Icons.add),
+        floatingActionButton: FloatingActionButton.extended(
+          label: const Text("New Note"),
+          onPressed: () => _openNoteEditor(),
+          icon: const Icon(Icons.add),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            hasText ? Icons.search_off : Icons.note_add,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            hasText ? 'No notes found' : 'No notes yet',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          if (!hasText) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _openNoteEditor(),
+              child: const Text('Create your first note'),
+            ),
+          ],
+        ],
       ),
     );
   }

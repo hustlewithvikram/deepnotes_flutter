@@ -20,12 +20,59 @@ class NotesGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelectionMode = selectedNoteIds.isNotEmpty;
 
-    return GridView.builder(
+    // Separate pinned and unpinned notes
+    final pinnedNotes = notes.where((note) => note.isPinned).toList();
+    final unpinnedNotes = notes.where((note) => !note.isPinned).toList();
+
+    return ListView(
       padding: const EdgeInsets.all(12),
+      children: [
+        // Pinned Notes Section
+        if (pinnedNotes.isNotEmpty) ...[
+          _buildSectionHeader('Pinned'),
+          const SizedBox(height: 2), // Reduced even more
+          _buildNotesGrid(pinnedNotes, isSelectionMode),
+        ],
+
+        // Add spacing between sections only if both exist
+        if (pinnedNotes.isNotEmpty && unpinnedNotes.isNotEmpty)
+          const SizedBox(height: 12), // Reduced from 16
+        // Other Notes Section
+        if (unpinnedNotes.isNotEmpty) ...[
+          if (pinnedNotes.isNotEmpty) _buildSectionHeader('Others'),
+          if (pinnedNotes.isNotEmpty) const SizedBox(height: 2), // Reduced
+          _buildNotesGrid(unpinnedNotes, isSelectionMode),
+        ],
+
+        // Empty state if no notes
+        if (notes.isEmpty) _buildEmptyState(),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotesGrid(List<Note> notes, bool isSelectionMode) {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      padding: EdgeInsets.zero, // ← THIS IS THE KEY FIX!
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        crossAxisSpacing: 8, // Reduced from 12
+        mainAxisSpacing: 8, // Reduced from 12
         childAspectRatio: 0.9,
       ),
       itemCount: notes.length,
@@ -36,9 +83,9 @@ class NotesGrid extends StatelessWidget {
         return NoteTile(
           note: note,
           isSelected: isSelected,
+          isSelectionMode: isSelectionMode,
           onTap: () {
             if (isSelectionMode) {
-              // Toggle selection instead of opening editor
               onLongPress(note);
             } else {
               onTap(note);
@@ -47,6 +94,22 @@ class NotesGrid extends StatelessWidget {
           onLongPress: () => onLongPress(note),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.note_add, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'No notes yet',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 }
